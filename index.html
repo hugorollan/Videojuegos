@@ -39,19 +39,21 @@
       </a>
     </nav>
     <div class="sidebar-footer">
-      <div id="auth-section">
-        <button id="login-btn" class="btn-auth">Iniciar Sesión</button>
-        <div id="user-info" style="display: none;">
-          <span id="username-display"></span>
-          <button id="logout-btn" class="btn-auth-small">Cerrar Sesión</button>
-        </div>
-      </div>
+      <!-- Auth section moved to header -->
     </div>
   </aside>
 
   <!-- Main Content Area -->
   <div class="main-container">
     <header class="top-header">
+      <div id="auth-section" class="auth-header">
+        <button id="login-btn" class="btn-auth-header">Iniciar Sesión</button>
+        <button id="register-btn" class="btn-auth-header">Registrarse</button>
+        <div id="user-info" style="display: none;">
+          <span id="username-display"></span>
+          <button id="logout-btn" class="btn-auth-small">Cerrar Sesión</button>
+        </div>
+      </div>
       <div class="search-container">
         <input type="text" id="search-input" placeholder="Buscar juegos..." class="search-input">
         <button id="search-btn" class="search-btn">🔍</button>
@@ -97,6 +99,33 @@
           </div>
           <div id="login-error" class="error-message" style="display: none;"></div>
           <button type="submit" class="btn-submit">Ingresar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Registro -->
+  <div id="register-modal" class="modal">
+    <div class="modal-content modal-small">
+      <span class="close-register">&times;</span>
+      <div class="login-form-container">
+        <h2>Registrarse</h2>
+        <form id="register-form">
+          <div class="form-group">
+            <label for="register-username">Usuario:</label>
+            <input type="text" id="register-username" required minlength="3">
+          </div>
+          <div class="form-group">
+            <label for="register-password">Contraseña:</label>
+            <input type="password" id="register-password" required minlength="4">
+          </div>
+          <div class="form-group">
+            <label for="register-password-confirm">Confirmar Contraseña:</label>
+            <input type="password" id="register-password-confirm" required minlength="4">
+          </div>
+          <div id="register-error" class="error-message" style="display: none;"></div>
+          <div id="register-success" class="success-message" style="display: none;"></div>
+          <button type="submit" class="btn-submit">Crear Cuenta</button>
         </form>
       </div>
     </div>

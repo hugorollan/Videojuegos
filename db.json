@@ -10,10 +10,16 @@
   ],
   "usuarios": [
     {
-      "id": 1,
+      "id": "1",
       "username": "user",
       "password": "user",
       "role": "admin"
+    },
+    {
+      "id": "d742",
+      "username": "testuser",
+      "password": "testpass",
+      "role": "user"
     }
   ]
 }

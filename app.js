@@ -681,6 +681,7 @@ function configurarModal() {
 window.addEventListener('DOMContentLoaded', () => {
   configurarModal();
   configurarLoginModal();
+  configurarRegisterModal();
   cargarPlataformas();
   configurarBusqueda();
   configurarAuth();
@@ -936,6 +937,11 @@ function configurarLoginModal() {
     if (event.target == modal) {
       modal.style.display = 'none';
     }
+    // También cerrar register modal
+    const registerModal = document.getElementById('register-modal');
+    if (event.target == registerModal) {
+      registerModal.style.display = 'none';
+    }
   }
   
   // Manejar envío del formulario de login
@@ -943,6 +949,28 @@ function configurarLoginModal() {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       await manejarLogin();
+    });
+  }
+}
+
+// 24b. Configurar modal de registro
+function configurarRegisterModal() {
+  const modal = document.getElementById('register-modal');
+  const closeBtn = document.querySelector('.close-register');
+  const registerForm = document.getElementById('register-form');
+  
+  // Cerrar modal al hacer click en la X
+  if (closeBtn) {
+    closeBtn.onclick = function() {
+      modal.style.display = 'none';
+    }
+  }
+  
+  // Manejar envío del formulario de registro
+  if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await manejarRegistro();
     });
   }
 }
@@ -990,14 +1018,113 @@ async function manejarLogin() {
   }
 }
 
+// 25b. Manejar registro
+async function manejarRegistro() {
+  const username = document.getElementById('register-username').value.trim();
+  const password = document.getElementById('register-password').value.trim();
+  const passwordConfirm = document.getElementById('register-password-confirm').value.trim();
+  const errorDiv = document.getElementById('register-error');
+  const successDiv = document.getElementById('register-success');
+  
+  // Limpiar mensajes previos
+  errorDiv.style.display = 'none';
+  successDiv.style.display = 'none';
+  
+  // Validar que las contraseñas coincidan
+  if (password !== passwordConfirm) {
+    errorDiv.textContent = 'Las contraseñas no coinciden';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  // Validar longitud mínima
+  if (username.length < 3) {
+    errorDiv.textContent = 'El usuario debe tener al menos 3 caracteres';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  if (password.length < 4) {
+    errorDiv.textContent = 'La contraseña debe tener al menos 4 caracteres';
+    errorDiv.style.display = 'block';
+    return;
+  }
+  
+  try {
+    // Verificar si el usuario ya existe
+    const response = await fetch(USERS_API_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    const usuarios = await response.json();
+    
+    // Buscar si el usuario ya existe
+    const usuarioExiste = usuarios.find(u => u.username === username);
+    
+    if (usuarioExiste) {
+      errorDiv.textContent = 'El nombre de usuario ya está en uso';
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    // Crear nuevo usuario
+    const nuevoUsuario = {
+      username: sanitizeHTML(username),
+      password: password,
+      role: 'user'
+    };
+    
+    // Enviar POST para crear el usuario
+    const createResponse = await fetch(USERS_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(nuevoUsuario)
+    });
+    
+    if (!createResponse.ok) {
+      throw new Error(`Error HTTP: ${createResponse.status}`);
+    }
+    
+    // Registro exitoso
+    successDiv.textContent = '¡Registro exitoso! Ya puedes iniciar sesión.';
+    successDiv.style.display = 'block';
+    
+    // Limpiar formulario
+    document.getElementById('register-form').reset();
+    
+    // Cerrar modal después de 2 segundos y abrir login
+    setTimeout(() => {
+      document.getElementById('register-modal').style.display = 'none';
+      document.getElementById('login-modal').style.display = 'block';
+      successDiv.style.display = 'none';
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error al registrar usuario:', error);
+    errorDiv.textContent = 'Error al registrar. Asegúrate de que json-server esté ejecutándose.';
+    errorDiv.style.display = 'block';
+  }
+}
+
 // 26. Configurar autenticación
 function configurarAuth() {
   const loginBtn = document.getElementById('login-btn');
+  const registerBtn = document.getElementById('register-btn');
   const logoutBtn = document.getElementById('logout-btn');
   
   if (loginBtn) {
     loginBtn.addEventListener('click', () => {
       document.getElementById('login-modal').style.display = 'block';
+    });
+  }
+  
+  if (registerBtn) {
+    registerBtn.addEventListener('click', () => {
+      document.getElementById('register-modal').style.display = 'block';
     });
   }
   
@@ -1033,16 +1160,19 @@ function cargarUsuarioSesion() {
 // 28. Actualizar UI de autenticación
 function actualizarUIAuth() {
   const loginBtn = document.getElementById('login-btn');
+  const registerBtn = document.getElementById('register-btn');
   const userInfo = document.getElementById('user-info');
   const usernameDisplay = document.getElementById('username-display');
   
   if (currentUser) {
-    loginBtn.style.display = 'none';
-    userInfo.style.display = 'flex';
-    usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    if (userInfo) userInfo.style.display = 'flex';
+    if (usernameDisplay) usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
   } else {
-    loginBtn.style.display = 'block';
-    userInfo.style.display = 'none';
+    if (loginBtn) loginBtn.style.display = 'block';
+    if (registerBtn) registerBtn.style.display = 'block';
+    if (userInfo) userInfo.style.display = 'none';
   }
 }
 
