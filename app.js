@@ -1070,6 +1070,8 @@ async function manejarRegistro() {
     }
     
     // Crear nuevo usuario
+    // Note: In a production environment, passwords should be hashed
+    // before storing. For this demo using json-server, we store plain text.
     const nuevoUsuario = {
       username: sanitizeHTML(username),
       password: password,
@@ -1097,11 +1099,12 @@ async function manejarRegistro() {
     document.getElementById('register-form').reset();
     
     // Cerrar modal después de 2 segundos y abrir login
+    const REDIRECT_DELAY_MS = 2000;
     setTimeout(() => {
       document.getElementById('register-modal').style.display = 'none';
       document.getElementById('login-modal').style.display = 'block';
       successDiv.style.display = 'none';
-    }, 2000);
+    }, REDIRECT_DELAY_MS);
     
   } catch (error) {
     console.error('Error al registrar usuario:', error);
@@ -1165,14 +1168,16 @@ function actualizarUIAuth() {
   const usernameDisplay = document.getElementById('username-display');
   
   if (currentUser) {
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (registerBtn) registerBtn.style.display = 'none';
-    if (userInfo) userInfo.style.display = 'flex';
-    if (usernameDisplay) usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
+    loginBtn?.style.setProperty('display', 'none');
+    registerBtn?.style.setProperty('display', 'none');
+    userInfo?.style.setProperty('display', 'flex');
+    if (usernameDisplay) {
+      usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
+    }
   } else {
-    if (loginBtn) loginBtn.style.display = 'block';
-    if (registerBtn) registerBtn.style.display = 'block';
-    if (userInfo) userInfo.style.display = 'none';
+    loginBtn?.style.setProperty('display', 'block');
+    registerBtn?.style.setProperty('display', 'block');
+    userInfo?.style.setProperty('display', 'none');
   }
 }
 
