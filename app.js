@@ -5,9 +5,19 @@ const API_KEY = 'b008bfe85f3b4d948fdd39d209a62264';
 
 // URL de la API Mock (json-server)
 const MOCK_API_URL = 'http://localhost:3000/reseñas';
+const USERS_API_URL = 'http://localhost:3000/usuarios';
 
-// Variable global para almacenar la plataforma seleccionada
+// Variables globales
 let platformaSeleccionada = '';
+let searchQuery = '';
+let currentUser = null;
+
+// Función de sanitización mejorada para prevenir XSS
+function sanitizeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 // Datos de demostración (fallback si la API no está disponible)
 const MOCK_PLATFORMS = [
@@ -312,8 +322,16 @@ async function cargarPlataformas() {
 }
 
 // 3. Función principal asíncrona para obtener los juegos
-async function obtenerJuegos() {
+async function obtenerJuegos(options = {}) {
   console.log('Iniciando carga de juegos...');
+  
+  const { 
+    ordering = '-rating',
+    dates = '',
+    metacritic = '',
+    page_size = 12,
+    search = searchQuery 
+  } = options;
   
   // Buscamos el contenedor en el HTML donde mostraremos los juegos
   const container = document.getElementById('juegos-container');
@@ -326,12 +344,27 @@ async function obtenerJuegos() {
   container.innerHTML = '<p class="loading">Cargando juegos...</p>';
 
   try {
-    // 4. Construimos la URL. Pedimos 12 juegos (page_size=12)
-    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=12`;
+    // 4. Construimos la URL
+    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=${page_size}&ordering=${ordering}`;
     
     // Si hay una plataforma seleccionada, la agregamos al filtro
     if (platformaSeleccionada) {
       url += `&platforms=${platformaSeleccionada}`;
+    }
+
+    // Si hay búsqueda, la agregamos
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
+    }
+
+    // Si hay filtro de fechas
+    if (dates) {
+      url += `&dates=${dates}`;
+    }
+
+    // Si hay filtro de metacritic
+    if (metacritic) {
+      url += `&metacritic=${metacritic}`;
     }
 
     // 5. Hacemos la llamada a la API usando fetch y esperamos la respuesta
@@ -352,14 +385,14 @@ async function obtenerJuegos() {
     const juegos = data.results;
     
     if (juegos.length === 0) {
-      container.innerHTML = '<p class="loading">No se encontraron juegos para esta plataforma.</p>';
+      container.innerHTML = '<p class="loading">No se encontraron juegos.</p>';
       return;
     }
     
     juegos.forEach(juego => {
       // 9. CUMPLIMOS REQUISITO DE SEGURIDAD (XSS)
       // Limpiamos el título de cualquier etiqueta HTML antes de mostrarlo
-      const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
+      const tituloSeguro = sanitizeHTML(juego.name);
 
       // 10. Creamos el HTML para cada juego
       const juegoElement = document.createElement('article');
@@ -371,7 +404,7 @@ async function obtenerJuegos() {
           loading="lazy" 
         />
         <h3>${tituloSeguro}</h3>
-        <p>Valoración: ${juego.rating} / 5</p>
+        <p class="rating">⭐ ${juego.rating} / 5</p>
       `;
       
       // 11. Agregamos evento click para mostrar detalles
@@ -402,13 +435,20 @@ async function obtenerJuegos() {
       );
     }
     
+    // Filtramos por búsqueda si es necesario
+    if (search) {
+      juegosFiltrados = juegosFiltrados.filter(juego =>
+        juego.name.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    
     if (juegosFiltrados.length === 0) {
-      container.innerHTML = '<p class="loading">No se encontraron juegos para esta plataforma.</p>';
+      container.innerHTML = '<p class="loading">No se encontraron juegos.</p>';
       return;
     }
     
     juegosFiltrados.forEach(juego => {
-      const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
+      const tituloSeguro = sanitizeHTML(juego.name);
       const juegoElement = document.createElement('article');
       juegoElement.className = 'game-card';
       juegoElement.innerHTML = `
@@ -418,7 +458,7 @@ async function obtenerJuegos() {
           loading="lazy" 
         />
         <h3>${tituloSeguro}</h3>
-        <p>Valoración: ${juego.rating} / 5</p>
+        <p class="rating">⭐ ${juego.rating} / 5</p>
       `;
       
       juegoElement.addEventListener('click', () => {
@@ -451,8 +491,8 @@ async function mostrarDetallesJuego(gameId) {
     const juego = await response.json();
     
     // Sanitizamos los datos
-    const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
-    const descripcionSegura = juego.description_raw || 'No hay descripción disponible.';
+    const tituloSeguro = sanitizeHTML(juego.name);
+    const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
     
     // Construimos el HTML con toda la información del juego
     modalBody.innerHTML = `
@@ -540,8 +580,8 @@ async function mostrarDetallesJuego(gameId) {
       return;
     }
     
-    const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
-    const descripcionSegura = juego.description_raw || 'No hay descripción disponible.';
+    const tituloSeguro = sanitizeHTML(juego.name);
+    const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
     
     modalBody.innerHTML = `
       <div class="modal-header">
@@ -640,8 +680,12 @@ function configurarModal() {
 // 16. Inicialización: ejecutamos todo al cargar la página
 window.addEventListener('DOMContentLoaded', () => {
   configurarModal();
+  configurarLoginModal();
   cargarPlataformas();
+  configurarBusqueda();
+  configurarAuth();
   iniciarRouter();
+  cargarUsuarioSesion();
 });
 
 // 17. IMPLEMENTACIÓN DEL ROUTER SPA
@@ -651,15 +695,34 @@ function iniciarRouter() {
     const hash = window.location.hash || '#/';
     const appContent = document.getElementById('app-content');
     
+    // Actualizar navegación activa
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.classList.remove('active');
+    });
+    
     // Limpiar contenido previo
     appContent.innerHTML = '';
     
     if (hash === '#/' || hash === '') {
       // Vista de galería de juegos
-      renderizarVistaJuegos();
-    } else if (hash === '#/anadir-resena') {
-      // Vista del formulario de reseña
-      renderizarVistaFormulario();
+      document.querySelector('[data-route="home"]')?.classList.add('active');
+      renderizarVistaJuegos('Todos los Juegos');
+    } else if (hash === '#/top-games') {
+      document.querySelector('[data-route="top-games"]')?.classList.add('active');
+      renderizarVistaJuegos('Top Juegos', { ordering: '-rating', metacritic: '80,100' });
+    } else if (hash === '#/best-year') {
+      document.querySelector('[data-route="best-year"]')?.classList.add('active');
+      const currentYear = new Date().getFullYear();
+      renderizarVistaJuegos(`Best of ${currentYear}`, { dates: `${currentYear}-01-01,${currentYear}-12-31`, ordering: '-rating' });
+    } else if (hash === '#/popular-2024') {
+      document.querySelector('[data-route="popular-2024"]')?.classList.add('active');
+      renderizarVistaJuegos('Popular en 2024', { dates: '2024-01-01,2024-12-31', ordering: '-added' });
+    } else if (hash === '#/all-time-250') {
+      document.querySelector('[data-route="all-time-250"]')?.classList.add('active');
+      renderizarVistaJuegos('All Time Top 250', { ordering: '-rating', page_size: 20, metacritic: '85,100' });
+    } else if (hash === '#/resenas') {
+      document.querySelector('[data-route="resenas"]')?.classList.add('active');
+      renderizarVistaResenas();
     } else {
       // Vista de error 404
       appContent.innerHTML = '<p class="error">Página no encontrada</p>';
@@ -674,60 +737,316 @@ function iniciarRouter() {
 }
 
 // 18. Vista de galería de juegos
-function renderizarVistaJuegos() {
+function renderizarVistaJuegos(titulo = 'Todos los Juegos', options = {}) {
   const appContent = document.getElementById('app-content');
   
-  // Crear el contenedor de juegos
-  const juegosContainer = document.createElement('div');
-  juegosContainer.id = 'juegos-container';
-  appContent.appendChild(juegosContainer);
+  // Crear el título y contenedor de juegos
+  appContent.innerHTML = `
+    <h1 class="page-title">${titulo}</h1>
+    <div id="juegos-container"></div>
+  `;
   
-  // Cargar los juegos
-  obtenerJuegos();
+  // Cargar los juegos con las opciones proporcionadas
+  obtenerJuegos(options);
 }
 
-// 19. Vista del formulario de reseña
-function renderizarVistaFormulario() {
+// 19. Vista de reseñas (renombrado de renderizarVistaFormulario)
+function renderizarVistaResenas() {
   const appContent = document.getElementById('app-content');
   
   appContent.innerHTML = `
     <div class="form-container">
-      <h2>Añadir Reseña de Juego</h2>
-      <form id="review-form" class="review-form">
-        <div class="form-group">
-          <label for="titulo">Título del Juego:</label>
-          <input type="text" id="titulo" name="titulo" required placeholder="Ej: The Legend of Zelda">
-        </div>
-        
-        <div class="form-group">
-          <label for="comentario">Comentario:</label>
-          <textarea id="comentario" name="comentario" rows="6" required placeholder="Escribe tu reseña aquí..."></textarea>
-        </div>
-        
-        <div class="form-actions">
-          <button type="submit" class="btn-submit">Publicar Reseña</button>
-          <a href="#/" class="btn-cancel">Cancelar</a>
-        </div>
-      </form>
-      
-      <div id="form-message" class="form-message"></div>
+      <h2>Reseñas de Juegos</h2>
       
       <div class="reviews-section">
-        <h3>Reseñas Publicadas</h3>
+        <h3>Todas las Reseñas</h3>
         <div id="reviews-list"></div>
       </div>
+      
+      ${currentUser ? `
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #333;">
+          <h3 style="color: var(--text-primary); margin-bottom: 20px;">Añadir Nueva Reseña</h3>
+          <form id="review-form" class="review-form">
+            <div class="form-group">
+              <label for="titulo">Título del Juego:</label>
+              <input type="text" id="titulo" name="titulo" required placeholder="Ej: The Legend of Zelda">
+            </div>
+            
+            <div class="form-group">
+              <label for="comentario">Comentario:</label>
+              <textarea id="comentario" name="comentario" rows="6" required placeholder="Escribe tu reseña aquí..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+              <button type="submit" class="btn-submit">Publicar Reseña</button>
+            </div>
+          </form>
+          
+          <div id="form-message" class="form-message"></div>
+        </div>
+      ` : `
+        <div style="margin-top: 40px; padding: 20px; background: var(--bg-dark); border-radius: 8px; text-align: center;">
+          <p style="color: var(--text-secondary); margin-bottom: 15px;">Debes iniciar sesión para añadir reseñas</p>
+          <button id="login-prompt-btn" class="btn-submit">Iniciar Sesión</button>
+        </div>
+      `}
     </div>
   `;
   
-  // Configurar el manejador del formulario
-  const form = document.getElementById('review-form');
-  form.addEventListener('submit', manejarEnvioFormulario);
-  
   // Cargar reseñas existentes
   cargarResenas();
+  
+  // Configurar el manejador del formulario si el usuario está logueado
+  if (currentUser) {
+    const form = document.getElementById('review-form');
+    form.addEventListener('submit', manejarEnvioFormulario);
+  } else {
+    const loginPromptBtn = document.getElementById('login-prompt-btn');
+    if (loginPromptBtn) {
+      loginPromptBtn.addEventListener('click', () => {
+        document.getElementById('login-modal').style.display = 'block';
+      });
+    }
+  }
 }
 
-// 20. Manejador del envío del formulario
+// 21. Cargar reseñas existentes
+async function cargarResenas() {
+  const reviewsList = document.getElementById('reviews-list');
+  
+  if (!reviewsList) return;
+  
+  reviewsList.innerHTML = '<p class="loading">Cargando reseñas...</p>';
+  
+  try {
+    const response = await fetch(MOCK_API_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    const resenas = await response.json();
+    
+    if (resenas.length === 0) {
+      reviewsList.innerHTML = '<p class="no-reviews">No hay reseñas publicadas aún.</p>';
+      return;
+    }
+    
+    // Mostrar las reseñas con sanitización
+    reviewsList.innerHTML = resenas.map(resena => {
+      // Sanitizar datos de usuario para prevenir XSS
+      const tituloSeguro = sanitizeHTML(String(resena.titulo || ''));
+      const comentarioSeguro = sanitizeHTML(String(resena.comentario || ''));
+      const fechaSegura = new Date(resena.fecha).toLocaleString('es-ES');
+      const usuarioSeguro = sanitizeHTML(String(resena.usuario || 'Anónimo'));
+      
+      return `
+        <div class="review-card">
+          <h4>${tituloSeguro}</h4>
+          <p>${comentarioSeguro}</p>
+          <small>Publicado por: ${usuarioSeguro} | ${fechaSegura}</small>
+          ${currentUser && currentUser.role === 'admin' ? `
+            <button class="btn-delete" data-id="${resena.id}">Eliminar Reseña</button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+    
+    // Añadir event listeners a los botones de eliminar
+    if (currentUser && currentUser.role === 'admin') {
+      document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.getAttribute('data-id');
+          if (confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
+            await eliminarResena(id);
+          }
+        });
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error al cargar las reseñas:', error);
+    reviewsList.innerHTML = '<p class="error-message">Error al cargar las reseñas. Asegúrate de que json-server esté ejecutándose.</p>';
+  }
+}
+
+// 22. Eliminar reseña (solo admin)
+async function eliminarResena(id) {
+  try {
+    const response = await fetch(`${MOCK_API_URL}/${id}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    // Recargar reseñas
+    cargarResenas();
+    
+  } catch (error) {
+    console.error('Error al eliminar la reseña:', error);
+    alert('Error al eliminar la reseña.');
+  }
+}
+
+// 23. Configurar búsqueda
+function configurarBusqueda() {
+  const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-btn');
+  
+  if (!searchInput || !searchBtn) return;
+  
+  const realizarBusqueda = () => {
+    searchQuery = searchInput.value.trim();
+    // Si estamos en una vista de juegos, recargar
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '' || hash.startsWith('#/top-') || hash.startsWith('#/best-') || hash.startsWith('#/popular-') || hash.startsWith('#/all-time-')) {
+      const container = document.getElementById('juegos-container');
+      if (container) {
+        obtenerJuegos();
+      }
+    }
+  };
+  
+  searchBtn.addEventListener('click', realizarBusqueda);
+  
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      realizarBusqueda();
+    }
+  });
+}
+
+// 24. Configurar modal de login
+function configurarLoginModal() {
+  const modal = document.getElementById('login-modal');
+  const closeBtn = document.querySelector('.close-login');
+  const loginForm = document.getElementById('login-form');
+  
+  // Cerrar modal al hacer click en la X
+  if (closeBtn) {
+    closeBtn.onclick = function() {
+      modal.style.display = 'none';
+    }
+  }
+  
+  // Cerrar modal al hacer click fuera del contenido
+  window.onclick = function(event) {
+    if (event.target == modal) {
+      modal.style.display = 'none';
+    }
+  }
+  
+  // Manejar envío del formulario de login
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await manejarLogin();
+    });
+  }
+}
+
+// 25. Manejar login
+async function manejarLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  const errorDiv = document.getElementById('login-error');
+  
+  try {
+    const response = await fetch(USERS_API_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    const usuarios = await response.json();
+    
+    // Buscar usuario
+    const usuario = usuarios.find(u => u.username === username && u.password === password);
+    
+    if (usuario) {
+      // Login exitoso
+      currentUser = usuario;
+      localStorage.setItem('currentUser', JSON.stringify(usuario));
+      actualizarUIAuth();
+      document.getElementById('login-modal').style.display = 'none';
+      errorDiv.style.display = 'none';
+      
+      // Recargar la vista actual si es la de reseñas
+      const hash = window.location.hash || '#/';
+      if (hash === '#/resenas') {
+        renderizarVistaResenas();
+      }
+    } else {
+      errorDiv.textContent = 'Usuario o contraseña incorrectos';
+      errorDiv.style.display = 'block';
+    }
+    
+  } catch (error) {
+    console.error('Error al iniciar sesión:', error);
+    errorDiv.textContent = 'Error al iniciar sesión. Asegúrate de que json-server esté ejecutándose.';
+    errorDiv.style.display = 'block';
+  }
+}
+
+// 26. Configurar autenticación
+function configurarAuth() {
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      document.getElementById('login-modal').style.display = 'block';
+    });
+  }
+  
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      currentUser = null;
+      localStorage.removeItem('currentUser');
+      actualizarUIAuth();
+      
+      // Recargar la vista actual si es la de reseñas
+      const hash = window.location.hash || '#/';
+      if (hash === '#/resenas') {
+        renderizarVistaResenas();
+      }
+    });
+  }
+}
+
+// 27. Cargar usuario de sesión
+function cargarUsuarioSesion() {
+  const userData = localStorage.getItem('currentUser');
+  if (userData) {
+    try {
+      currentUser = JSON.parse(userData);
+      actualizarUIAuth();
+    } catch (error) {
+      console.error('Error al cargar usuario de sesión:', error);
+      localStorage.removeItem('currentUser');
+    }
+  }
+}
+
+// 28. Actualizar UI de autenticación
+function actualizarUIAuth() {
+  const loginBtn = document.getElementById('login-btn');
+  const userInfo = document.getElementById('user-info');
+  const usernameDisplay = document.getElementById('username-display');
+  
+  if (currentUser) {
+    loginBtn.style.display = 'none';
+    userInfo.style.display = 'flex';
+    usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
+  } else {
+    loginBtn.style.display = 'block';
+    userInfo.style.display = 'none';
+  }
+}
+
+// 29. Actualizar envío del formulario para incluir usuario
 async function manejarEnvioFormulario(event) {
   event.preventDefault(); // Prevenir recarga de página
   
@@ -744,15 +1063,21 @@ async function manejarEnvioFormulario(event) {
     return;
   }
   
+  if (!currentUser) {
+    formMessage.innerHTML = '<p class="error-message">⚠️ Debes iniciar sesión para añadir reseñas.</p>';
+    return;
+  }
+  
   // Sanitizar el contenido para prevenir XSS antes de enviar
-  const tituloSanitizado = titulo.replace(/<[^>]*>?/gm, '');
-  const comentarioSanitizado = comentario.replace(/<[^>]*>?/gm, '');
+  const tituloSanitizado = sanitizeHTML(titulo);
+  const comentarioSanitizado = sanitizeHTML(comentario);
   
   // Crear el objeto de la reseña
   const resena = {
     titulo: tituloSanitizado,
     comentario: comentarioSanitizado,
-    fecha: new Date().toISOString()
+    fecha: new Date().toISOString(),
+    usuario: currentUser.username
   };
   
   try {
@@ -785,49 +1110,5 @@ async function manejarEnvioFormulario(event) {
   } catch (error) {
     console.error('Error al publicar la reseña:', error);
     formMessage.innerHTML = '<p class="error-message">❌ Error al publicar la reseña. Asegúrate de que json-server esté ejecutándose.</p>';
-  }
-}
-
-// 21. Cargar reseñas existentes
-async function cargarResenas() {
-  const reviewsList = document.getElementById('reviews-list');
-  
-  if (!reviewsList) return;
-  
-  reviewsList.innerHTML = '<p class="loading">Cargando reseñas...</p>';
-  
-  try {
-    const response = await fetch(MOCK_API_URL);
-    
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
-    }
-    
-    const resenas = await response.json();
-    
-    if (resenas.length === 0) {
-      reviewsList.innerHTML = '<p class="no-reviews">No hay reseñas publicadas aún.</p>';
-      return;
-    }
-    
-    // Mostrar las reseñas con sanitización
-    reviewsList.innerHTML = resenas.map(resena => {
-      // Sanitizar datos de usuario para prevenir XSS
-      const tituloSeguro = String(resena.titulo || '').replace(/<[^>]*>?/gm, '');
-      const comentarioSeguro = String(resena.comentario || '').replace(/<[^>]*>?/gm, '');
-      const fechaSegura = new Date(resena.fecha).toLocaleString('es-ES');
-      
-      return `
-        <div class="review-card">
-          <h4>${tituloSeguro}</h4>
-          <p>${comentarioSeguro}</p>
-          <small>Publicado: ${fechaSegura}</small>
-        </div>
-      `;
-    }).join('');
-    
-  } catch (error) {
-    console.error('Error al cargar las reseñas:', error);
-    reviewsList.innerHTML = '<p class="error-message">Error al cargar las reseñas. Asegúrate de que json-server esté ejecutándose.</p>';
   }
 }
