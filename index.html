@@ -48,7 +48,6 @@
     <header class="top-header">
       <div id="auth-section" class="auth-header">
         <button id="login-btn" class="btn-auth-header">Iniciar Sesión</button>
-        <button id="register-btn" class="btn-auth-header">Registrarse</button>
         <div id="user-info" style="display: none;">
           <span id="username-display"></span>
           <button id="logout-btn" class="btn-auth-small">Cerrar Sesión</button>
@@ -98,6 +97,9 @@
             <input type="password" id="login-password" required>
           </div>
           <div id="login-error" class="error-message" style="display: none;"></div>
+          <p class="auth-switch-link">
+            ¿No tienes cuenta? <a href="#" id="show-register-link">Regístrate</a>
+          </p>
           <button type="submit" class="btn-submit">Ingresar</button>
         </form>
       </div>
@@ -125,6 +127,9 @@
           </div>
           <div id="register-error" class="error-message" style="display: none;"></div>
           <div id="register-success" class="success-message" style="display: none;"></div>
+          <p class="auth-switch-link">
+            ¿Ya tienes cuenta? <a href="#" id="show-login-link">Inicia sesión</a>
+          </p>
           <button type="submit" class="btn-submit">Crear Cuenta</button>
         </form>
       </div>

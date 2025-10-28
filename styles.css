@@ -714,3 +714,79 @@ footer a:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- 1. SKELETON LOADERS --- */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.skeleton-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  height: 295px; /* Altura de tus game-card */
+  border: 1px solid #333;
+  opacity: 0.5;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-review {
+  background: var(--bg-dark);
+  border-radius: 8px;
+  border: 1px solid #333;
+  height: 100px;
+  opacity: 0.5;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  margin-bottom: 15px;
+}
+
+/* --- 2. AUTH SWITCH LINK --- */
+.auth-switch-link {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.auth-switch-link a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+.auth-switch-link a:hover {
+  text-decoration: underline;
+}
+
+/* --- 3. EMPTY STATE --- */
+.empty-state {
+  grid-column: 1 / -1; /* Ocupa todo el grid */
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px dashed #333;
+}
+.empty-state-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+  margin-bottom: 15px;
+}
+.empty-state p {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+.empty-state-review {
+  /* Versión más simple para la lista de reseñas */
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+.empty-state-review .empty-state-icon {
+  font-size: 2.5rem;
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
