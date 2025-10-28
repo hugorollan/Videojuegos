@@ -786,8 +786,8 @@ function renderizarVistaResenas() {
     </div>
   `;
   
-  // Cargar reseñas existentes
-  cargarResenas();
+  // Cargar reseñas existentes (con timeout para asegurar que el DOM está listo)
+  setTimeout(() => cargarResenas(), 100);
   
   // Configurar el manejador del formulario si el usuario está logueado
   if (currentUser) {

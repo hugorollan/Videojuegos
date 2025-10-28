@@ -1,8 +1,16 @@
 {
-  "reseñas": [],
+  "reseñas": [
+    {
+      "id": "e7a0",
+      "titulo": "Test",
+      "comentario": "Test comment",
+      "fecha": "2025-10-28T19:00:00.000Z",
+      "usuario": "user"
+    }
+  ],
   "usuarios": [
     {
-      "id": 1,
+      "id": "1",
       "username": "user",
       "password": "user",
       "role": "admin"
