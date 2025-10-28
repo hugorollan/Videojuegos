@@ -1,3 +1,11 @@
 {
-  "reseñas": []
+  "reseñas": [],
+  "usuarios": [
+    {
+      "id": 1,
+      "username": "user",
+      "password": "user",
+      "role": "admin"
+    }
+  ]
 }

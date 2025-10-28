@@ -7,24 +7,70 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header>
-    <h1>Videojuegos Populares</h1>
-    <p>Explora los mejores videojuegos usando la API de RAWG.io</p>
-    <nav class="main-nav">
-      <a href="#/" class="nav-link">Inicio</a>
-      <a href="#/anadir-resena" class="nav-link">Añadir Reseña</a>
-    </nav>
-    <div class="filter-container">
-      <label for="platform-filter">Filtrar por consola:</label>
-      <select id="platform-filter">
-        <option value="">Todas las plataformas</option>
-      </select>
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="logo">
+      <h2>RAWG</h2>
     </div>
-  </header>
-  
-  <main id="app-content">
-    <!-- Content will be rendered here by the router -->
-  </main>
+    <nav class="sidebar-nav">
+      <a href="#/" class="nav-link" data-route="home">
+        <span class="nav-icon">🏠</span>
+        <span>Inicio</span>
+      </a>
+      <a href="#/top-games" class="nav-link" data-route="top-games">
+        <span class="nav-icon">🏆</span>
+        <span>Top Juegos</span>
+      </a>
+      <a href="#/best-year" class="nav-link" data-route="best-year">
+        <span class="nav-icon">⭐</span>
+        <span>Best of the Year</span>
+      </a>
+      <a href="#/popular-2024" class="nav-link" data-route="popular-2024">
+        <span class="nav-icon">🔥</span>
+        <span>Popular en 2024</span>
+      </a>
+      <a href="#/all-time-250" class="nav-link" data-route="all-time-250">
+        <span class="nav-icon">🎮</span>
+        <span>All Time Top 250</span>
+      </a>
+      <a href="#/resenas" class="nav-link" data-route="resenas">
+        <span class="nav-icon">💬</span>
+        <span>Reseñas</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="auth-section">
+        <button id="login-btn" class="btn-auth">Iniciar Sesión</button>
+        <div id="user-info" style="display: none;">
+          <span id="username-display"></span>
+          <button id="logout-btn" class="btn-auth-small">Cerrar Sesión</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="main-container">
+    <header class="top-header">
+      <div class="search-container">
+        <input type="text" id="search-input" placeholder="Buscar juegos..." class="search-input">
+        <button id="search-btn" class="search-btn">🔍</button>
+      </div>
+      <div class="filter-container">
+        <select id="platform-filter">
+          <option value="">Todas las plataformas</option>
+        </select>
+      </div>
+    </header>
+    
+    <main id="app-content">
+      <!-- Content will be rendered here by the router -->
+    </main>
+
+    <footer>
+      <p>Datos proporcionados por <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG.io</a></p>
+    </footer>
+  </div>
 
   <!-- Modal para detalles del juego -->
   <div id="game-modal" class="modal">
@@ -34,9 +80,27 @@
     </div>
   </div>
 
-  <footer>
-    <p>Datos proporcionados por <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG.io</a></p>
-  </footer>
+  <!-- Modal para Login -->
+  <div id="login-modal" class="modal">
+    <div class="modal-content modal-small">
+      <span class="close-login">&times;</span>
+      <div class="login-form-container">
+        <h2>Iniciar Sesión</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-username">Usuario:</label>
+            <input type="text" id="login-username" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Contraseña:</label>
+            <input type="password" id="login-password" required>
+          </div>
+          <div id="login-error" class="error-message" style="display: none;"></div>
+          <button type="submit" class="btn-submit">Ingresar</button>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
