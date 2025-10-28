@@ -3,6 +3,9 @@
 // 1. Pega tu clave API de RAWG.io aquí
 const API_KEY = 'b008bfe85f3b4d948fdd39d209a62264';
 
+// URL de la API Mock (json-server)
+const MOCK_API_URL = 'http://localhost:3000/reseñas';
+
 // Variable global para almacenar la plataforma seleccionada
 let platformaSeleccionada = '';
 
@@ -638,5 +641,193 @@ function configurarModal() {
 window.addEventListener('DOMContentLoaded', () => {
   configurarModal();
   cargarPlataformas();
-  obtenerJuegos();
+  iniciarRouter();
 });
+
+// 17. IMPLEMENTACIÓN DEL ROUTER SPA
+function iniciarRouter() {
+  // Función router principal
+  function router() {
+    const hash = window.location.hash || '#/';
+    const appContent = document.getElementById('app-content');
+    
+    // Limpiar contenido previo
+    appContent.innerHTML = '';
+    
+    if (hash === '#/' || hash === '') {
+      // Vista de galería de juegos
+      renderizarVistaJuegos();
+    } else if (hash === '#/anadir-resena') {
+      // Vista del formulario de reseña
+      renderizarVistaFormulario();
+    } else {
+      // Vista de error 404
+      appContent.innerHTML = '<p class="error">Página no encontrada</p>';
+    }
+  }
+  
+  // Detectar cambios en el hash
+  window.addEventListener('hashchange', router);
+  
+  // Ejecutar router al inicio
+  router();
+}
+
+// 18. Vista de galería de juegos
+function renderizarVistaJuegos() {
+  const appContent = document.getElementById('app-content');
+  
+  // Crear el contenedor de juegos
+  const juegosContainer = document.createElement('div');
+  juegosContainer.id = 'juegos-container';
+  appContent.appendChild(juegosContainer);
+  
+  // Cargar los juegos
+  obtenerJuegos();
+}
+
+// 19. Vista del formulario de reseña
+function renderizarVistaFormulario() {
+  const appContent = document.getElementById('app-content');
+  
+  appContent.innerHTML = `
+    <div class="form-container">
+      <h2>Añadir Reseña de Juego</h2>
+      <form id="review-form" class="review-form">
+        <div class="form-group">
+          <label for="titulo">Título del Juego:</label>
+          <input type="text" id="titulo" name="titulo" required placeholder="Ej: The Legend of Zelda">
+        </div>
+        
+        <div class="form-group">
+          <label for="comentario">Comentario:</label>
+          <textarea id="comentario" name="comentario" rows="6" required placeholder="Escribe tu reseña aquí..."></textarea>
+        </div>
+        
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">Publicar Reseña</button>
+          <a href="#/" class="btn-cancel">Cancelar</a>
+        </div>
+      </form>
+      
+      <div id="form-message" class="form-message"></div>
+      
+      <div class="reviews-section">
+        <h3>Reseñas Publicadas</h3>
+        <div id="reviews-list"></div>
+      </div>
+    </div>
+  `;
+  
+  // Configurar el manejador del formulario
+  const form = document.getElementById('review-form');
+  form.addEventListener('submit', manejarEnvioFormulario);
+  
+  // Cargar reseñas existentes
+  cargarResenas();
+}
+
+// 20. Manejador del envío del formulario
+async function manejarEnvioFormulario(event) {
+  event.preventDefault(); // Prevenir recarga de página
+  
+  const formMessage = document.getElementById('form-message');
+  const tituloInput = document.getElementById('titulo');
+  const comentarioInput = document.getElementById('comentario');
+  
+  // Validar y sanitizar los campos
+  const titulo = tituloInput.value.trim();
+  const comentario = comentarioInput.value.trim();
+  
+  if (!titulo || !comentario) {
+    formMessage.innerHTML = '<p class="error-message">⚠️ Por favor, completa todos los campos.</p>';
+    return;
+  }
+  
+  // Sanitizar el contenido para prevenir XSS antes de enviar
+  const tituloSanitizado = titulo.replace(/<[^>]*>?/gm, '');
+  const comentarioSanitizado = comentario.replace(/<[^>]*>?/gm, '');
+  
+  // Crear el objeto de la reseña
+  const resena = {
+    titulo: tituloSanitizado,
+    comentario: comentarioSanitizado,
+    fecha: new Date().toISOString()
+  };
+  
+  try {
+    // Enviar POST a la API mock
+    const response = await fetch(MOCK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(resena)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    // Éxito
+    formMessage.innerHTML = '<p class="success-message">✅ ¡Reseña publicada con éxito!</p>';
+    
+    // Limpiar formulario
+    tituloInput.value = '';
+    comentarioInput.value = '';
+    
+    // Recargar la lista de reseñas
+    setTimeout(() => {
+      cargarResenas();
+      formMessage.innerHTML = '';
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error al publicar la reseña:', error);
+    formMessage.innerHTML = '<p class="error-message">❌ Error al publicar la reseña. Asegúrate de que json-server esté ejecutándose.</p>';
+  }
+}
+
+// 21. Cargar reseñas existentes
+async function cargarResenas() {
+  const reviewsList = document.getElementById('reviews-list');
+  
+  if (!reviewsList) return;
+  
+  reviewsList.innerHTML = '<p class="loading">Cargando reseñas...</p>';
+  
+  try {
+    const response = await fetch(MOCK_API_URL);
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+    
+    const resenas = await response.json();
+    
+    if (resenas.length === 0) {
+      reviewsList.innerHTML = '<p class="no-reviews">No hay reseñas publicadas aún.</p>';
+      return;
+    }
+    
+    // Mostrar las reseñas con sanitización
+    reviewsList.innerHTML = resenas.map(resena => {
+      // Sanitizar datos de usuario para prevenir XSS
+      const tituloSeguro = String(resena.titulo || '').replace(/<[^>]*>?/gm, '');
+      const comentarioSeguro = String(resena.comentario || '').replace(/<[^>]*>?/gm, '');
+      const fechaSegura = new Date(resena.fecha).toLocaleString('es-ES');
+      
+      return `
+        <div class="review-card">
+          <h4>${tituloSeguro}</h4>
+          <p>${comentarioSeguro}</p>
+          <small>Publicado: ${fechaSegura}</small>
+        </div>
+      `;
+    }).join('');
+    
+  } catch (error) {
+    console.error('Error al cargar las reseñas:', error);
+    reviewsList.innerHTML = '<p class="error-message">Error al cargar las reseñas. Asegúrate de que json-server esté ejecutándose.</p>';
+  }
+}

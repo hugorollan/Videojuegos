@@ -10,6 +10,10 @@
   <header>
     <h1>Videojuegos Populares</h1>
     <p>Explora los mejores videojuegos usando la API de RAWG.io</p>
+    <nav class="main-nav">
+      <a href="#/" class="nav-link">Inicio</a>
+      <a href="#/anadir-resena" class="nav-link">Añadir Reseña</a>
+    </nav>
     <div class="filter-container">
       <label for="platform-filter">Filtrar por consola:</label>
       <select id="platform-filter">
@@ -18,8 +22,8 @@
     </div>
   </header>
   
-  <main>
-    <div id="juegos-container"></div>
+  <main id="app-content">
+    <!-- Content will be rendered here by the router -->
   </main>
 
   <!-- Modal para detalles del juego -->
