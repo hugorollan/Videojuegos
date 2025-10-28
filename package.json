@@ -1,4 +1,11 @@
 {
+  "name": "videojuegos-spa",
+  "version": "1.0.0",
+  "description": "Single Page Application para explorar videojuegos con la API de RAWG.io",
+  "scripts": {
+    "api": "json-server --watch db.json --port 3000",
+    "start": "echo 'API iniciada en http://localhost:3000' && echo 'Abre index.html en tu navegador web'"
+  },
   "devDependencies": {
     "json-server": "^1.0.0-beta.3"
   }

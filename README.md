@@ -46,6 +46,11 @@ Este proyecto es una Single Page Application (SPA) que integra la API de RAWG.io
 
 3. **Iniciar json-server (API Mock):**
    ```bash
+   npm run api
+   ```
+   
+   O manualmente:
+   ```bash
    json-server --watch db.json --port 3000
    ```
    
