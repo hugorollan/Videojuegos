@@ -341,7 +341,8 @@ async function obtenerJuegos(options = {}) {
   }
   
   // Mostramos un mensaje de "Cargando..."
-  container.innerHTML = '<p class="loading">Cargando juegos...</p>';
+  const skeletonHTML = '<div class="skeleton-card"></div>'.repeat(6); // Muestra 6 esqueletos
+  container.innerHTML = skeletonHTML;
 
   try {
     // 4. Construimos la URL
@@ -385,7 +386,12 @@ async function obtenerJuegos(options = {}) {
     const juegos = data.results;
     
     if (juegos.length === 0) {
-      container.innerHTML = '<p class="loading">No se encontraron juegos.</p>';
+      container.innerHTML = `
+  <div class="empty-state">
+    <div class="empty-state-icon">🎮</div>
+    <p>No se encontraron juegos</p>
+  </div>
+`;
       return;
     }
     
@@ -443,7 +449,12 @@ async function obtenerJuegos(options = {}) {
     }
     
     if (juegosFiltrados.length === 0) {
-      container.innerHTML = '<p class="loading">No se encontraron juegos.</p>';
+      container.innerHTML = `
+  <div class="empty-state">
+    <div class="empty-state-icon">🎮</div>
+    <p>No se encontraron juegos</p>
+  </div>
+`;
       return;
     }
     
@@ -817,7 +828,10 @@ async function cargarResenas() {
   
   if (!reviewsList) return;
   
-  reviewsList.innerHTML = '<p class="loading">Cargando reseñas...</p>';
+  reviewsList.innerHTML = `
+  <div class="skeleton-review"></div>
+  <div class="skeleton-review"></div>
+`;
   
   try {
     const response = await fetch(MOCK_API_URL);
@@ -829,7 +843,12 @@ async function cargarResenas() {
     const resenas = await response.json();
     
     if (resenas.length === 0) {
-      reviewsList.innerHTML = '<p class="no-reviews">No hay reseñas publicadas aún.</p>';
+      reviewsList.innerHTML = `
+  <div class="empty-state-review">
+    <div class="empty-state-icon">💬</div>
+    <p>No hay reseñas publicadas aún</p>
+  </div>
+`;
       return;
     }
     
@@ -951,6 +970,13 @@ function configurarLoginModal() {
       await manejarLogin();
     });
   }
+  
+  // Añadir listener para el enlace de registro
+  document.getElementById('show-register-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('login-modal').style.display = 'none';
+    document.getElementById('register-modal').style.display = 'block';
+  });
 }
 
 // 24b. Configurar modal de registro
@@ -973,6 +999,13 @@ function configurarRegisterModal() {
       await manejarRegistro();
     });
   }
+  
+  // Añadir listener para el enlace de login
+  document.getElementById('show-login-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('register-modal').style.display = 'none';
+    document.getElementById('login-modal').style.display = 'block';
+  });
 }
 
 // 25. Manejar login
@@ -1116,18 +1149,11 @@ async function manejarRegistro() {
 // 26. Configurar autenticación
 function configurarAuth() {
   const loginBtn = document.getElementById('login-btn');
-  const registerBtn = document.getElementById('register-btn');
   const logoutBtn = document.getElementById('logout-btn');
   
   if (loginBtn) {
     loginBtn.addEventListener('click', () => {
       document.getElementById('login-modal').style.display = 'block';
-    });
-  }
-  
-  if (registerBtn) {
-    registerBtn.addEventListener('click', () => {
-      document.getElementById('register-modal').style.display = 'block';
     });
   }
   
@@ -1163,20 +1189,17 @@ function cargarUsuarioSesion() {
 // 28. Actualizar UI de autenticación
 function actualizarUIAuth() {
   const loginBtn = document.getElementById('login-btn');
-  const registerBtn = document.getElementById('register-btn');
   const userInfo = document.getElementById('user-info');
   const usernameDisplay = document.getElementById('username-display');
   
   if (currentUser) {
     loginBtn?.style.setProperty('display', 'none');
-    registerBtn?.style.setProperty('display', 'none');
     userInfo?.style.setProperty('display', 'flex');
     if (usernameDisplay) {
       usernameDisplay.textContent = `👤 ${currentUser.username}${currentUser.role === 'admin' ? ' (Admin)' : ''}`;
     }
   } else {
     loginBtn?.style.setProperty('display', 'block');
-    registerBtn?.style.setProperty('display', 'block');
     userInfo?.style.setProperty('display', 'none');
   }
 }
