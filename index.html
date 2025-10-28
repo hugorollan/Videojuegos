@@ -10,11 +10,25 @@
   <header>
     <h1>Videojuegos Populares</h1>
     <p>Explora los mejores videojuegos usando la API de RAWG.io</p>
+    <div class="filter-container">
+      <label for="platform-filter">Filtrar por consola:</label>
+      <select id="platform-filter">
+        <option value="">Todas las plataformas</option>
+      </select>
+    </div>
   </header>
   
   <main>
     <div id="juegos-container"></div>
   </main>
+
+  <!-- Modal para detalles del juego -->
+  <div id="game-modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
 
   <footer>
     <p>Datos proporcionados por <a href="https://rawg.io/" target="_blank" rel="noopener">RAWG.io</a></p>
