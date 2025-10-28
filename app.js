@@ -12,6 +12,13 @@ let platformaSeleccionada = '';
 let searchQuery = '';
 let currentUser = null;
 
+// Función de sanitización mejorada para prevenir XSS
+function sanitizeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // Datos de demostración (fallback si la API no está disponible)
 const MOCK_PLATFORMS = [
   { id: 4, name: 'PC' },
@@ -385,7 +392,7 @@ async function obtenerJuegos(options = {}) {
     juegos.forEach(juego => {
       // 9. CUMPLIMOS REQUISITO DE SEGURIDAD (XSS)
       // Limpiamos el título de cualquier etiqueta HTML antes de mostrarlo
-      const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
+      const tituloSeguro = sanitizeHTML(juego.name);
 
       // 10. Creamos el HTML para cada juego
       const juegoElement = document.createElement('article');
@@ -441,7 +448,7 @@ async function obtenerJuegos(options = {}) {
     }
     
     juegosFiltrados.forEach(juego => {
-      const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
+      const tituloSeguro = sanitizeHTML(juego.name);
       const juegoElement = document.createElement('article');
       juegoElement.className = 'game-card';
       juegoElement.innerHTML = `
@@ -484,8 +491,8 @@ async function mostrarDetallesJuego(gameId) {
     const juego = await response.json();
     
     // Sanitizamos los datos
-    const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
-    const descripcionSegura = juego.description_raw || 'No hay descripción disponible.';
+    const tituloSeguro = sanitizeHTML(juego.name);
+    const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
     
     // Construimos el HTML con toda la información del juego
     modalBody.innerHTML = `
@@ -573,8 +580,8 @@ async function mostrarDetallesJuego(gameId) {
       return;
     }
     
-    const tituloSeguro = juego.name.replace(/<[^>]*>?/gm, '');
-    const descripcionSegura = juego.description_raw || 'No hay descripción disponible.';
+    const tituloSeguro = sanitizeHTML(juego.name);
+    const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
     
     modalBody.innerHTML = `
       <div class="modal-header">
@@ -786,8 +793,8 @@ function renderizarVistaResenas() {
     </div>
   `;
   
-  // Cargar reseñas existentes (con timeout para asegurar que el DOM está listo)
-  setTimeout(() => cargarResenas(), 100);
+  // Cargar reseñas existentes
+  cargarResenas();
   
   // Configurar el manejador del formulario si el usuario está logueado
   if (currentUser) {
@@ -828,10 +835,10 @@ async function cargarResenas() {
     // Mostrar las reseñas con sanitización
     reviewsList.innerHTML = resenas.map(resena => {
       // Sanitizar datos de usuario para prevenir XSS
-      const tituloSeguro = String(resena.titulo || '').replace(/<[^>]*>?/gm, '');
-      const comentarioSeguro = String(resena.comentario || '').replace(/<[^>]*>?/gm, '');
+      const tituloSeguro = sanitizeHTML(String(resena.titulo || ''));
+      const comentarioSeguro = sanitizeHTML(String(resena.comentario || ''));
       const fechaSegura = new Date(resena.fecha).toLocaleString('es-ES');
-      const usuarioSeguro = String(resena.usuario || 'Anónimo').replace(/<[^>]*>?/gm, '');
+      const usuarioSeguro = sanitizeHTML(String(resena.usuario || 'Anónimo'));
       
       return `
         <div class="review-card">
@@ -1062,8 +1069,8 @@ async function manejarEnvioFormulario(event) {
   }
   
   // Sanitizar el contenido para prevenir XSS antes de enviar
-  const tituloSanitizado = titulo.replace(/<[^>]*>?/gm, '');
-  const comentarioSanitizado = comentario.replace(/<[^>]*>?/gm, '');
+  const tituloSanitizado = sanitizeHTML(titulo);
+  const comentarioSanitizado = sanitizeHTML(comentario);
   
   // Crear el objeto de la reseña
   const resena = {
