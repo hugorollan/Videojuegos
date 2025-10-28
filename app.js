@@ -735,7 +735,7 @@ async function manejarEnvioFormulario(event) {
   const tituloInput = document.getElementById('titulo');
   const comentarioInput = document.getElementById('comentario');
   
-  // Validar que los campos no estén vacíos
+  // Validar y sanitizar los campos
   const titulo = tituloInput.value.trim();
   const comentario = comentarioInput.value.trim();
   
@@ -744,10 +744,14 @@ async function manejarEnvioFormulario(event) {
     return;
   }
   
+  // Sanitizar el contenido para prevenir XSS antes de enviar
+  const tituloSanitizado = titulo.replace(/<[^>]*>?/gm, '');
+  const comentarioSanitizado = comentario.replace(/<[^>]*>?/gm, '');
+  
   // Crear el objeto de la reseña
   const resena = {
-    titulo: titulo,
-    comentario: comentario,
+    titulo: tituloSanitizado,
+    comentario: comentarioSanitizado,
     fecha: new Date().toISOString()
   };
   
@@ -806,14 +810,21 @@ async function cargarResenas() {
       return;
     }
     
-    // Mostrar las reseñas
-    reviewsList.innerHTML = resenas.map(resena => `
-      <div class="review-card">
-        <h4>${resena.titulo}</h4>
-        <p>${resena.comentario}</p>
-        <small>Publicado: ${new Date(resena.fecha).toLocaleString('es-ES')}</small>
-      </div>
-    `).join('');
+    // Mostrar las reseñas con sanitización
+    reviewsList.innerHTML = resenas.map(resena => {
+      // Sanitizar datos de usuario para prevenir XSS
+      const tituloSeguro = String(resena.titulo || '').replace(/<[^>]*>?/gm, '');
+      const comentarioSeguro = String(resena.comentario || '').replace(/<[^>]*>?/gm, '');
+      const fechaSegura = new Date(resena.fecha).toLocaleString('es-ES');
+      
+      return `
+        <div class="review-card">
+          <h4>${tituloSeguro}</h4>
+          <p>${comentarioSeguro}</p>
+          <small>Publicado: ${fechaSegura}</small>
+        </div>
+      `;
+    }).join('');
     
   } catch (error) {
     console.error('Error al cargar las reseñas:', error);
