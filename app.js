@@ -346,16 +346,19 @@ async function obtenerJuegos(options = {}) {
 
   try {
     // 4. Construimos la URL
-    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=${page_size}&ordering=${ordering}`;
+    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=${page_size}`;
+
+    // Si hay búsqueda, la agregamos (y NO agregamos ordering)
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
+    } else {
+      // Si NO hay búsqueda, SÍ agregamos ordering
+      url += `&ordering=${ordering}`;
+    }
     
     // Si hay una plataforma seleccionada, la agregamos al filtro
     if (platformaSeleccionada) {
       url += `&platforms=${platformaSeleccionada}`;
-    }
-
-    // Si hay búsqueda, la agregamos
-    if (search) {
-      url += `&search=${encodeURIComponent(search)}`;
     }
 
     // Si hay filtro de fechas
