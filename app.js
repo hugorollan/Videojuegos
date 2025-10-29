@@ -17,6 +17,9 @@ let generoSeleccionado = '';
 let ordenSeleccionado = '-rating';
 let debounceTimer;
 
+// Rutas que deben responder a cambios de ordenación
+const SORTABLE_ROUTES = ['#/', '', '#/top-games', '#/best-year', '#/popular-2024', '#/all-time-250'];
+
 // Función de sanitización mejorada para prevenir XSS
 function sanitizeHTML(str) {
   const div = document.createElement('div');
@@ -363,7 +366,7 @@ async function obtenerJuegos(options = {}) {
     } else {
       // Si NO hay búsqueda, SÍ agregamos ordering
       // Usar ordering de las opciones si está definido, sino usar ordenSeleccionado
-      const orderingToUse = ordering !== '-rating' ? ordering : ordenSeleccionado;
+      const orderingToUse = ordering || ordenSeleccionado;
       url += `&ordering=${orderingToUse}`;
     }
     
@@ -1076,15 +1079,13 @@ async function renderizarVistaFavoritos() {
       // Añadir listener para el botón de favoritos
       const favBtn = juegoElement.querySelector('.fav-btn');
       if (favBtn) {
-        favBtn.addEventListener('click', (e) => {
+        favBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          toggleFavorito(juego.id, favBtn);
+          await toggleFavorito(juego.id, favBtn);
           // Si se quita de favoritos, actualizar la vista
-          setTimeout(() => {
-            if (!userFavorites.includes(juego.id)) {
-              renderizarVistaFavoritos(); // Recargar la vista
-            }
-          }, 100);
+          if (!userFavorites.includes(juego.id)) {
+            renderizarVistaFavoritos(); // Recargar la vista
+          }
         });
       }
       
@@ -1206,7 +1207,7 @@ function configurarBusqueda() {
     
     // Si estamos en una vista de juegos, recargar
     const hash = window.location.hash || '#/';
-    if (hash === '#/' || hash === '' || hash.startsWith('#/top-') || hash.startsWith('#/best-') || hash.startsWith('#/popular-') || hash.startsWith('#/all-time-')) {
+    if (SORTABLE_ROUTES.includes(hash)) {
       const container = document.getElementById('juegos-container');
       if (container) {
         obtenerJuegos();
@@ -1618,12 +1619,9 @@ function mostrarBotonCargarMas(options) {
     currentPage++; // Incrementa el contador de página
     loadMoreBtn.textContent = 'Cargando...'; // Feedback visual
     loadMoreBtn.disabled = true;
-    try {
-      await obtenerJuegos(options); // Llama a la API para la siguiente página
-    } finally {
-      // La función mostrarBotonCargarMas se llamará de nuevo después de obtenerJuegos
-      // así que no necesitamos restaurar el botón aquí
-    }
+    await obtenerJuegos(options); // Llama a la API para la siguiente página
+    // La función mostrarBotonCargarMas se llamará de nuevo después de obtenerJuegos
+    // y creará un nuevo botón
   });
   
   paginationContainer.appendChild(loadMoreBtn);
@@ -1714,7 +1712,7 @@ function configurarOrdenacion() {
     
     // Si estamos en una vista de juegos, recargar
     const hash = window.location.hash || '#/';
-    if (hash === '#/' || hash === '' || hash.startsWith('#/top-') || hash.startsWith('#/best-') || hash.startsWith('#/popular-') || hash.startsWith('#/all-time-')) {
+    if (SORTABLE_ROUTES.includes(hash)) {
       const container = document.getElementById('juegos-container');
       if (container) {
         obtenerJuegos();
