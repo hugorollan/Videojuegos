@@ -11,6 +11,10 @@ const USERS_API_URL = 'http://localhost:3000/usuarios';
 let platformaSeleccionada = '';
 let searchQuery = '';
 let currentUser = null;
+let currentPage = 1;
+let userFavorites = [];
+let generoSeleccionado = '';
+let debounceTimer;
 
 // Función de sanitización mejorada para prevenir XSS
 function sanitizeHTML(str) {
@@ -299,6 +303,7 @@ async function cargarPlataformas() {
     // Listener para cuando cambie el filtro
     selectElement.addEventListener('change', (e) => {
       platformaSeleccionada = e.target.value;
+      currentPage = 1;
       obtenerJuegos();
     });
     
@@ -316,6 +321,7 @@ async function cargarPlataformas() {
     // Listener para cuando cambie el filtro
     selectElement.addEventListener('change', (e) => {
       platformaSeleccionada = e.target.value;
+      currentPage = 1;
       obtenerJuegos();
     });
   }
@@ -340,13 +346,15 @@ async function obtenerJuegos(options = {}) {
     return;
   }
   
-  // Mostramos un mensaje de "Cargando..."
-  const skeletonHTML = '<div class="skeleton-card"></div>'.repeat(6); // Muestra 6 esqueletos
-  container.innerHTML = skeletonHTML;
+  // Mostramos un mensaje de "Cargando..." solo en la primera página
+  if (currentPage === 1) {
+    const skeletonHTML = '<div class="skeleton-card"></div>'.repeat(6); // Muestra 6 esqueletos
+    container.innerHTML = skeletonHTML;
+  }
 
   try {
     // 4. Construimos la URL
-    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=${page_size}`;
+    let url = `https://api.rawg.io/api/games?key=${API_KEY}&page_size=${page_size}&page=${currentPage}`;
 
     // Si hay búsqueda, la agregamos (y NO agregamos ordering)
     if (search) {
@@ -359,6 +367,11 @@ async function obtenerJuegos(options = {}) {
     // Si hay una plataforma seleccionada, la agregamos al filtro
     if (platformaSeleccionada) {
       url += `&platforms=${platformaSeleccionada}`;
+    }
+    
+    // Si hay un género seleccionado, lo agregamos al filtro
+    if (generoSeleccionado) {
+      url += `&genres=${generoSeleccionado}`;
     }
 
     // Si hay filtro de fechas
@@ -383,7 +396,10 @@ async function obtenerJuegos(options = {}) {
     const data = await response.json();
 
     // 8. ¡Éxito! Limpiamos el "Cargando..." y mostramos los juegos
-    container.innerHTML = ''; // Limpiamos el contenedor
+    // Limpia el contenedor SOLO si es la página 1
+    if (currentPage === 1) {
+      container.innerHTML = '';
+    }
     
     // 'data.results' es el array que contiene la lista de juegos
     const juegos = data.results;
@@ -414,6 +430,7 @@ async function obtenerJuegos(options = {}) {
         />
         <h3>${tituloSeguro}</h3>
         <p class="rating">⭐ ${juego.rating} / 5</p>
+        ${currentUser ? `<button class="fav-btn ${userFavorites.includes(juego.id) ? 'active' : ''}" data-game-id="${juego.id}">❤️</button>` : ''}
       `;
       
       // 11. Agregamos evento click para mostrar detalles
@@ -425,9 +442,29 @@ async function obtenerJuegos(options = {}) {
       // La propiedad 'loading="lazy"' en la <img> de arriba
       // hace que la imagen solo se cargue cuando esté cerca de verse.
 
+      // Añadimos el listener para el botón de favoritos
+      if (currentUser) {
+        const favBtn = juegoElement.querySelector('.fav-btn');
+        if (favBtn) {
+          favBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita que se abra el modal
+            toggleFavorito(juego.id, favBtn);
+          });
+        }
+      }
+
       // Añadimos la tarjeta del juego al contenedor
       container.appendChild(juegoElement);
     });
+    
+    // Limpia el botón anterior
+    const oldBtn = document.getElementById('load-more-btn');
+    if (oldBtn) oldBtn.remove();
+    
+    // Si la API dice que hay una página siguiente, muestra el botón
+    if (data.next) { 
+      mostrarBotonCargarMas(options);
+    }
 
   } catch (error) {
     // 13. Manejamos cualquier error (problema de red, API key incorrecta, etc.)
@@ -473,11 +510,23 @@ async function obtenerJuegos(options = {}) {
         />
         <h3>${tituloSeguro}</h3>
         <p class="rating">⭐ ${juego.rating} / 5</p>
+        ${currentUser ? `<button class="fav-btn ${userFavorites.includes(juego.id) ? 'active' : ''}" data-game-id="${juego.id}">❤️</button>` : ''}
       `;
       
       juegoElement.addEventListener('click', () => {
         mostrarDetallesJuego(juego.id);
       });
+      
+      // Añadimos el listener para el botón de favoritos
+      if (currentUser) {
+        const favBtn = juegoElement.querySelector('.fav-btn');
+        if (favBtn) {
+          favBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita que se abra el modal
+            toggleFavorito(juego.id, favBtn);
+          });
+        }
+      }
       
       container.appendChild(juegoElement);
     });
@@ -697,6 +746,7 @@ window.addEventListener('DOMContentLoaded', () => {
   configurarLoginModal();
   configurarRegisterModal();
   cargarPlataformas();
+  cargarGeneros();
   configurarBusqueda();
   configurarAuth();
   iniciarRouter();
@@ -721,19 +771,24 @@ function iniciarRouter() {
     if (hash === '#/' || hash === '') {
       // Vista de galería de juegos
       document.querySelector('[data-route="home"]')?.classList.add('active');
+      currentPage = 1;
       renderizarVistaJuegos('Todos los Juegos');
     } else if (hash === '#/top-games') {
       document.querySelector('[data-route="top-games"]')?.classList.add('active');
+      currentPage = 1;
       renderizarVistaJuegos('Top Juegos', { ordering: '-rating', metacritic: '80,100' });
     } else if (hash === '#/best-year') {
       document.querySelector('[data-route="best-year"]')?.classList.add('active');
+      currentPage = 1;
       const currentYear = new Date().getFullYear();
       renderizarVistaJuegos(`Best of ${currentYear}`, { dates: `${currentYear}-01-01,${currentYear}-12-31`, ordering: '-rating' });
     } else if (hash === '#/popular-2024') {
       document.querySelector('[data-route="popular-2024"]')?.classList.add('active');
+      currentPage = 1;
       renderizarVistaJuegos('Popular en 2024', { dates: '2024-01-01,2024-12-31', ordering: '-added' });
     } else if (hash === '#/all-time-250') {
       document.querySelector('[data-route="all-time-250"]')?.classList.add('active');
+      currentPage = 1;
       renderizarVistaJuegos('All Time Top 250', { ordering: '-rating', page_size: 20, metacritic: '85,100' });
     } else if (hash === '#/resenas') {
       document.querySelector('[data-route="resenas"]')?.classList.add('active');
@@ -759,6 +814,7 @@ function renderizarVistaJuegos(titulo = 'Todos los Juegos', options = {}) {
   appContent.innerHTML = `
     <h1 class="page-title">${titulo}</h1>
     <div id="juegos-container"></div>
+    <div id="pagination-container" class="pagination-container"></div>
   `;
   
   // Cargar los juegos con las opciones proporcionadas
@@ -922,6 +978,8 @@ function configurarBusqueda() {
   
   const realizarBusqueda = () => {
     searchQuery = searchInput.value.trim();
+    currentPage = 1; // Resetea la página
+    
     // Si estamos en una vista de juegos, recargar
     const hash = window.location.hash || '#/';
     if (hash === '#/' || hash === '' || hash.startsWith('#/top-') || hash.startsWith('#/best-') || hash.startsWith('#/popular-') || hash.startsWith('#/all-time-')) {
@@ -932,11 +990,17 @@ function configurarBusqueda() {
     }
   };
   
-  searchBtn.addEventListener('click', realizarBusqueda);
+  searchBtn.addEventListener('click', () => {
+    clearTimeout(debounceTimer); // Cancela el debounce si se hace clic
+    realizarBusqueda();
+  });
   
-  searchInput.addEventListener('keypress', (e) => {
+  searchInput.addEventListener('keyup', (e) => {
     if (e.key === 'Enter') {
+      clearTimeout(debounceTimer); // Busca al instante con Enter
       realizarBusqueda();
+    } else {
+      debounceSearch(realizarBusqueda); // Espera 500ms después de teclear
     }
   });
 }
@@ -1032,6 +1096,7 @@ async function manejarLogin() {
     if (usuario) {
       // Login exitoso
       currentUser = usuario;
+      userFavorites = usuario.favoritos || [];
       localStorage.setItem('currentUser', JSON.stringify(usuario));
       actualizarUIAuth();
       document.getElementById('login-modal').style.display = 'none';
@@ -1163,6 +1228,7 @@ function configurarAuth() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       currentUser = null;
+      userFavorites = [];
       localStorage.removeItem('currentUser');
       actualizarUIAuth();
       
@@ -1181,6 +1247,7 @@ function cargarUsuarioSesion() {
   if (userData) {
     try {
       currentUser = JSON.parse(userData);
+      userFavorites = currentUser.favoritos || [];
       actualizarUIAuth();
     } catch (error) {
       console.error('Error al cargar usuario de sesión:', error);
@@ -1272,4 +1339,100 @@ async function manejarEnvioFormulario(event) {
     console.error('Error al publicar la reseña:', error);
     formMessage.innerHTML = '<p class="error-message">❌ Error al publicar la reseña. Asegúrate de que json-server esté ejecutándose.</p>';
   }
+}
+
+// 30. Mostrar botón de cargar más
+function mostrarBotonCargarMas(options) {
+  const paginationContainer = document.getElementById('pagination-container');
+  if (!paginationContainer) return;
+
+  // Quita el "Cargando..." si lo hubiera
+  paginationContainer.innerHTML = ''; 
+  
+  const loadMoreBtn = document.createElement('button');
+  loadMoreBtn.id = 'load-more-btn';
+  loadMoreBtn.className = 'btn-submit';
+  loadMoreBtn.textContent = 'Cargar Más Juegos';
+  
+  loadMoreBtn.addEventListener('click', () => {
+    currentPage++; // Incrementa el contador de página
+    loadMoreBtn.textContent = 'Cargando...'; // Feedback visual
+    loadMoreBtn.disabled = true;
+    obtenerJuegos(options); // Llama a la API para la siguiente página
+  });
+  
+  paginationContainer.appendChild(loadMoreBtn);
+}
+
+// 31. Toggle favorito
+async function toggleFavorito(gameId, buttonElement) {
+  if (!currentUser) return;
+  
+  const gameIdNum = parseInt(gameId);
+  let newFavorites;
+  
+  if (userFavorites.includes(gameIdNum)) {
+    // Quitar de favoritos
+    newFavorites = userFavorites.filter(id => id !== gameIdNum);
+    buttonElement.classList.remove('active');
+  } else {
+    // Añadir a favoritos
+    newFavorites = [...userFavorites, gameIdNum];
+    buttonElement.classList.add('active');
+  }
+  
+  // Actualizar estado local
+  userFavorites = newFavorites;
+  currentUser.favoritos = newFavorites;
+  localStorage.setItem('currentUser', JSON.stringify(currentUser));
+  
+  // Enviar a la API (db.json)
+  try {
+    const response = await fetch(`${USERS_API_URL}/${currentUser.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favoritos: newFavorites })
+    });
+    if (!response.ok) throw new Error('Error al guardar favorito');
+  } catch (error) {
+    console.error('Error al actualizar favoritos:', error);
+    // Opcional: Revertir el cambio visual si falla la API
+    buttonElement.classList.toggle('active'); 
+  }
+}
+
+// 32. Cargar géneros
+async function cargarGeneros() {
+  try {
+    const url = `https://api.rawg.io/api/genres?key=${API_KEY}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Error HTTP al cargar géneros');
+    
+    const data = await response.json();
+    const selectElement = document.getElementById('genre-filter');
+    
+    data.results.forEach(genre => {
+      const option = document.createElement('option');
+      option.value = genre.id;
+      option.textContent = genre.name;
+      selectElement.appendChild(option);
+    });
+    
+    selectElement.addEventListener('change', (e) => {
+      generoSeleccionado = e.target.value;
+      currentPage = 1; // Resetea la página
+      obtenerJuegos(); // Vuelve a cargar los juegos
+    });
+    
+  } catch (error) {
+    console.error('Error al cargar géneros:', error);
+  }
+}
+
+// 33. Debounce search
+function debounceSearch(callback, delay = 500) {
+  clearTimeout(debounceTimer); // Cancela el temporizador anterior
+  debounceTimer = setTimeout(() => {
+    callback(); // Llama a la función de búsqueda real
+  }, delay);
 }

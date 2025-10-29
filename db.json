@@ -13,13 +13,17 @@
       "id": "1",
       "username": "user",
       "password": "user",
-      "role": "admin"
+      "role": "admin",
+      "favoritos": [
+        3498
+      ]
     },
     {
       "id": "d742",
       "username": "testuser",
       "password": "testpass",
-      "role": "user"
+      "role": "user",
+      "favoritos": []
     }
   ]
 }
