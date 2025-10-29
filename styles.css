@@ -790,3 +790,34 @@ footer a:hover {
   opacity: 0.5;
   margin-bottom: 10px;
 }
+
+/* --- 4. PAGINATION --- */
+.pagination-container {
+  text-align: center;
+  margin-top: 30px;
+}
+
+/* --- 5. FAVORITOS --- */
+.game-card {
+  position: relative; /* Necesario para posicionar el botón */
+}
+.fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: var(--text-secondary); /* Color gris por defecto */
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s, color 0.2s;
+}
+.fav-btn:hover {
+  transform: scale(1.1);
+}
+.fav-btn.active {
+  color: #e74c3c; /* Color rojo cuando está activo */
+}
