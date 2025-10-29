@@ -37,6 +37,10 @@
         <span class="nav-icon">💬</span>
         <span>Reseñas</span>
       </a>
+      <a href="#/favoritos" class="nav-link" data-route="favoritos">
+        <span class="nav-icon">❤️</span>
+        <span>Mis Favoritos</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
       <!-- Auth section moved to header -->
@@ -65,6 +69,16 @@
       <div class="filter-container">
         <select id="genre-filter">
           <option value="">Todos los géneros</option>
+        </select>
+      </div>
+      <div class="filter-container">
+        <select id="sort-filter">
+          <option value="-rating">Valoración Descendente</option>
+          <option value="name">Nombre A-Z</option>
+          <option value="-name">Nombre Z-A</option>
+          <option value="released">Fecha Ascendente</option>
+          <option value="-released">Fecha Descendente</option>
+          <option value="added">Popularidad Reciente</option>
         </select>
       </div>
     </header>
