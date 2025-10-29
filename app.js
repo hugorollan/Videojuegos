@@ -14,6 +14,7 @@ let currentUser = null;
 let currentPage = 1;
 let userFavorites = [];
 let generoSeleccionado = '';
+let ordenSeleccionado = '-rating';
 let debounceTimer;
 
 // Función de sanitización mejorada para prevenir XSS
@@ -361,7 +362,9 @@ async function obtenerJuegos(options = {}) {
       url += `&search=${encodeURIComponent(search)}`;
     } else {
       // Si NO hay búsqueda, SÍ agregamos ordering
-      url += `&ordering=${ordering}`;
+      // Usar ordering de las opciones si está definido, sino usar ordenSeleccionado
+      const orderingToUse = ordering !== '-rating' ? ordering : ordenSeleccionado;
+      url += `&ordering=${orderingToUse}`;
     }
     
     // Si hay una plataforma seleccionada, la agregamos al filtro
@@ -543,25 +546,40 @@ async function mostrarDetallesJuego(gameId) {
   modalBody.innerHTML = '<p class="loading">Cargando detalles...</p>';
   
   try {
-    // Obtenemos los detalles completos del juego
-    const url = `https://api.rawg.io/api/games/${gameId}?key=${API_KEY}`;
-    const response = await fetch(url);
+    // Obtenemos los detalles completos del juego, screenshots y juegos similares
+    const detailsUrl = `https://api.rawg.io/api/games/${gameId}?key=${API_KEY}`;
+    const screenshotsUrl = `https://api.rawg.io/api/games/${gameId}/screenshots?key=${API_KEY}`;
+    const suggestedUrl = `https://api.rawg.io/api/games/${gameId}/suggested?key=${API_KEY}`;
     
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+    const [detailsResponse, screenshotsResponse, suggestedResponse] = await Promise.all([
+      fetch(detailsUrl),
+      fetch(screenshotsUrl),
+      fetch(suggestedUrl)
+    ]);
+    
+    if (!detailsResponse.ok) {
+      throw new Error(`Error HTTP: ${detailsResponse.status}`);
     }
     
-    const juego = await response.json();
+    const juego = await detailsResponse.json();
+    const screenshots = screenshotsResponse.ok ? await screenshotsResponse.json() : { results: [] };
+    const suggested = suggestedResponse.ok ? await suggestedResponse.json() : { results: [] };
     
     // Sanitizamos los datos
     const tituloSeguro = sanitizeHTML(juego.name);
     const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
     
+    // Verificar si el juego está en favoritos
+    const isFavorite = currentUser && userFavorites.includes(gameId);
+    
     // Construimos el HTML con toda la información del juego
     modalBody.innerHTML = `
       <div class="modal-header">
         ${juego.background_image ? `<img src="${juego.background_image}" alt="${tituloSeguro}">` : ''}
-        <h2 class="modal-title">${tituloSeguro}</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 class="modal-title">${tituloSeguro}</h2>
+          ${currentUser ? `<button class="fav-btn ${isFavorite ? 'active' : ''}" data-game-id="${gameId}" style="position: static; width: 40px; height: 40px; font-size: 1.5rem; margin-left: 15px;">❤️</button>` : ''}
+        </div>
       </div>
       
       <div class="info-grid">
@@ -601,6 +619,17 @@ async function mostrarDetallesJuego(gameId) {
         </div>
       ` : ''}
       
+      ${screenshots.results && screenshots.results.length > 0 ? `
+        <div class="modal-section">
+          <h3>Capturas de Pantalla</h3>
+          <div class="screenshots-carousel">
+            ${screenshots.results.slice(0, 5).map((screenshot, index) => `
+              <img src="${screenshot.image}" alt="Screenshot ${index + 1}" class="screenshot-img" loading="lazy">
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
       ${juego.developers && juego.developers.length > 0 ? `
         <div class="modal-section">
           <h3>Desarrolladores</h3>
@@ -630,7 +659,52 @@ async function mostrarDetallesJuego(gameId) {
           <p><a href="${juego.website}" target="_blank" rel="noopener">${juego.website}</a></p>
         </div>
       ` : ''}
+      
+      ${suggested.results && suggested.results.length > 0 ? `
+        <div class="modal-section">
+          <h3>Juegos Similares</h3>
+          <div class="similar-games-grid">
+            ${suggested.results.slice(0, 4).map(game => `
+              <div class="similar-game-card" data-game-id="${game.id}">
+                <img src="${game.background_image}" alt="${sanitizeHTML(game.name)}" loading="lazy">
+                <h4>${sanitizeHTML(game.name)}</h4>
+                <p class="rating">⭐ ${game.rating || 'N/A'}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
     `;
+    
+    // Añadir event listener al botón de favoritos en el modal
+    if (currentUser) {
+      const modalFavBtn = modalBody.querySelector('.fav-btn');
+      if (modalFavBtn) {
+        modalFavBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFavorito(gameId, modalFavBtn);
+          // También actualizar todos los botones de favoritos para este juego en las tarjetas
+          document.querySelectorAll(`.fav-btn[data-game-id="${gameId}"]`).forEach(btn => {
+            if (btn !== modalFavBtn) {
+              if (userFavorites.includes(gameId)) {
+                btn.classList.add('active');
+              } else {
+                btn.classList.remove('active');
+              }
+            }
+          });
+        });
+      }
+    }
+    
+    // Añadir event listeners a los juegos similares
+    const similarGameCards = modalBody.querySelectorAll('.similar-game-card');
+    similarGameCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const gameId = parseInt(card.getAttribute('data-game-id'));
+        mostrarDetallesJuego(gameId);
+      });
+    });
     
   } catch (error) {
     console.error('Error al obtener detalles del juego, usando datos de demostración:', error);
@@ -645,11 +719,15 @@ async function mostrarDetallesJuego(gameId) {
     
     const tituloSeguro = sanitizeHTML(juego.name);
     const descripcionSegura = sanitizeHTML(juego.description_raw || 'No hay descripción disponible.');
+    const isFavorite = currentUser && userFavorites.includes(gameId);
     
     modalBody.innerHTML = `
       <div class="modal-header">
         ${juego.background_image ? `<img src="${juego.background_image}" alt="${tituloSeguro}">` : ''}
-        <h2 class="modal-title">${tituloSeguro}</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 class="modal-title">${tituloSeguro}</h2>
+          ${currentUser ? `<button class="fav-btn ${isFavorite ? 'active' : ''}" data-game-id="${gameId}" style="position: static; width: 40px; height: 40px; font-size: 1.5rem; margin-left: 15px;">❤️</button>` : ''}
+        </div>
       </div>
       
       <div class="info-grid">
@@ -719,6 +797,27 @@ async function mostrarDetallesJuego(gameId) {
         </div>
       ` : ''}
     `;
+    
+    // Añadir event listener al botón de favoritos en el modal
+    if (currentUser) {
+      const modalFavBtn = modalBody.querySelector('.fav-btn');
+      if (modalFavBtn) {
+        modalFavBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFavorito(gameId, modalFavBtn);
+          // También actualizar todos los botones de favoritos para este juego en las tarjetas
+          document.querySelectorAll(`.fav-btn[data-game-id="${gameId}"]`).forEach(btn => {
+            if (btn !== modalFavBtn) {
+              if (userFavorites.includes(gameId)) {
+                btn.classList.add('active');
+              } else {
+                btn.classList.remove('active');
+              }
+            }
+          });
+        });
+      }
+    }
   }
 }
 
@@ -748,6 +847,7 @@ window.addEventListener('DOMContentLoaded', () => {
   cargarPlataformas();
   cargarGeneros();
   configurarBusqueda();
+  configurarOrdenacion();
   configurarAuth();
   iniciarRouter();
   cargarUsuarioSesion();
@@ -793,6 +893,9 @@ function iniciarRouter() {
     } else if (hash === '#/resenas') {
       document.querySelector('[data-route="resenas"]')?.classList.add('active');
       renderizarVistaResenas();
+    } else if (hash === '#/favoritos') {
+      document.querySelector('[data-route="favoritos"]')?.classList.add('active');
+      renderizarVistaFavoritos();
     } else {
       // Vista de error 404
       appContent.innerHTML = '<p class="error">Página no encontrada</p>';
@@ -878,6 +981,127 @@ function renderizarVistaResenas() {
         document.getElementById('login-modal').style.display = 'block';
       });
     }
+  }
+}
+
+// 20. Vista de favoritos
+async function renderizarVistaFavoritos() {
+  const appContent = document.getElementById('app-content');
+  
+  // Verificar si el usuario está logueado
+  if (!currentUser) {
+    appContent.innerHTML = `
+      <div class="form-container">
+        <h2>Mis Favoritos ❤️</h2>
+        <div style="padding: 40px; text-align: center; background: var(--bg-dark); border-radius: 8px;">
+          <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 1.1rem;">Debes iniciar sesión para ver tus favoritos</p>
+          <button id="login-prompt-favorites-btn" class="btn-submit">Iniciar Sesión</button>
+        </div>
+      </div>
+    `;
+    
+    const loginPromptBtn = document.getElementById('login-prompt-favorites-btn');
+    if (loginPromptBtn) {
+      loginPromptBtn.addEventListener('click', () => {
+        document.getElementById('login-modal').style.display = 'block';
+      });
+    }
+    return;
+  }
+  
+  // Usuario está logueado
+  appContent.innerHTML = `
+    <h1 class="page-title">Mis Favoritos ❤️</h1>
+    <div id="juegos-container"></div>
+  `;
+  
+  const container = document.getElementById('juegos-container');
+  
+  // Verificar si hay favoritos
+  if (!userFavorites || userFavorites.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">❤️</div>
+        <p>Aún no tienes juegos favoritos</p>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">
+          Explora juegos y marca tus favoritos haciendo clic en el corazón ❤️
+        </p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Mostrar skeletons mientras carga
+  container.innerHTML = '<div class="skeleton-card"></div>'.repeat(Math.min(userFavorites.length, 6));
+  
+  try {
+    // Obtener detalles de todos los juegos favoritos usando Promise.all
+    const gamePromises = userFavorites.map(gameId => 
+      fetch(`https://api.rawg.io/api/games/${gameId}?key=${API_KEY}`)
+        .then(response => {
+          if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+          return response.json();
+        })
+    );
+    
+    const juegos = await Promise.all(gamePromises);
+    
+    // Limpiar el contenedor
+    container.innerHTML = '';
+    
+    // Mostrar cada juego
+    juegos.forEach(juego => {
+      const tituloSeguro = sanitizeHTML(juego.name);
+      const juegoElement = document.createElement('article');
+      juegoElement.className = 'game-card';
+      juegoElement.innerHTML = `
+        <img 
+          src="${juego.background_image}" 
+          alt="Portada de ${tituloSeguro}" 
+          loading="lazy" 
+        />
+        <h3>${tituloSeguro}</h3>
+        <p class="rating">⭐ ${juego.rating} / 5</p>
+        <button class="fav-btn active" data-game-id="${juego.id}">❤️</button>
+      `;
+      
+      // Evento click para mostrar detalles
+      juegoElement.addEventListener('click', (e) => {
+        // No abrir modal si se hace clic en el botón de favoritos
+        if (!e.target.classList.contains('fav-btn')) {
+          mostrarDetallesJuego(juego.id);
+        }
+      });
+      
+      // Añadir listener para el botón de favoritos
+      const favBtn = juegoElement.querySelector('.fav-btn');
+      if (favBtn) {
+        favBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFavorito(juego.id, favBtn);
+          // Si se quita de favoritos, actualizar la vista
+          setTimeout(() => {
+            if (!userFavorites.includes(juego.id)) {
+              renderizarVistaFavoritos(); // Recargar la vista
+            }
+          }, 100);
+        });
+      }
+      
+      container.appendChild(juegoElement);
+    });
+    
+  } catch (error) {
+    console.error('Error al cargar juegos favoritos:', error);
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">⚠️</div>
+        <p>Error al cargar tus juegos favoritos</p>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">
+          ${error.message}
+        </p>
+      </div>
+    `;
   }
 }
 
@@ -1080,6 +1304,13 @@ async function manejarLogin() {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value.trim();
   const errorDiv = document.getElementById('login-error');
+  const loginForm = document.getElementById('login-form');
+  const submitBtn = loginForm.querySelector('button[type="submit"]');
+  
+  // Mostrar indicador de carga
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Iniciando...';
   
   try {
     const response = await fetch(USERS_API_URL);
@@ -1102,10 +1333,12 @@ async function manejarLogin() {
       document.getElementById('login-modal').style.display = 'none';
       errorDiv.style.display = 'none';
       
-      // Recargar la vista actual si es la de reseñas
+      // Recargar la vista actual si es la de reseñas o favoritos
       const hash = window.location.hash || '#/';
       if (hash === '#/resenas') {
         renderizarVistaResenas();
+      } else if (hash === '#/favoritos') {
+        renderizarVistaFavoritos();
       }
     } else {
       errorDiv.textContent = 'Usuario o contraseña incorrectos';
@@ -1116,6 +1349,9 @@ async function manejarLogin() {
     console.error('Error al iniciar sesión:', error);
     errorDiv.textContent = 'Error al iniciar sesión. Asegúrate de que json-server esté ejecutándose.';
     errorDiv.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -1126,6 +1362,8 @@ async function manejarRegistro() {
   const passwordConfirm = document.getElementById('register-password-confirm').value.trim();
   const errorDiv = document.getElementById('register-error');
   const successDiv = document.getElementById('register-success');
+  const registerForm = document.getElementById('register-form');
+  const submitBtn = registerForm.querySelector('button[type="submit"]');
   
   // Limpiar mensajes previos
   errorDiv.style.display = 'none';
@@ -1151,6 +1389,11 @@ async function manejarRegistro() {
     return;
   }
   
+  // Mostrar indicador de carga
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creando cuenta...';
+  
   try {
     // Verificar si el usuario ya existe
     const response = await fetch(USERS_API_URL);
@@ -1167,6 +1410,8 @@ async function manejarRegistro() {
     if (usuarioExiste) {
       errorDiv.textContent = 'El nombre de usuario ya está en uso';
       errorDiv.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
       return;
     }
     
@@ -1176,7 +1421,8 @@ async function manejarRegistro() {
     const nuevoUsuario = {
       username: sanitizeHTML(username),
       password: password,
-      role: 'user'
+      role: 'user',
+      favoritos: []
     };
     
     // Enviar POST para crear el usuario
@@ -1197,7 +1443,7 @@ async function manejarRegistro() {
     successDiv.style.display = 'block';
     
     // Limpiar formulario
-    document.getElementById('register-form').reset();
+    registerForm.reset();
     
     // Cerrar modal después de 2 segundos y abrir login
     const REDIRECT_DELAY_MS = 2000;
@@ -1205,12 +1451,16 @@ async function manejarRegistro() {
       document.getElementById('register-modal').style.display = 'none';
       document.getElementById('login-modal').style.display = 'block';
       successDiv.style.display = 'none';
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     }, REDIRECT_DELAY_MS);
     
   } catch (error) {
     console.error('Error al registrar usuario:', error);
     errorDiv.textContent = 'Error al registrar. Asegúrate de que json-server esté ejecutándose.';
     errorDiv.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -1281,6 +1531,7 @@ async function manejarEnvioFormulario(event) {
   const formMessage = document.getElementById('form-message');
   const tituloInput = document.getElementById('titulo');
   const comentarioInput = document.getElementById('comentario');
+  const submitBtn = event.target.querySelector('button[type="submit"]');
   
   // Validar y sanitizar los campos
   const titulo = tituloInput.value.trim();
@@ -1308,6 +1559,11 @@ async function manejarEnvioFormulario(event) {
     usuario: currentUser.username
   };
   
+  // Mostrar indicador de carga
+  const originalText = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Publicando...';
+  
   try {
     // Enviar POST a la API mock
     const response = await fetch(MOCK_API_URL, {
@@ -1333,11 +1589,15 @@ async function manejarEnvioFormulario(event) {
     setTimeout(() => {
       cargarResenas();
       formMessage.innerHTML = '';
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     }, 2000);
     
   } catch (error) {
     console.error('Error al publicar la reseña:', error);
     formMessage.innerHTML = '<p class="error-message">❌ Error al publicar la reseña. Asegúrate de que json-server esté ejecutándose.</p>';
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -1354,11 +1614,16 @@ function mostrarBotonCargarMas(options) {
   loadMoreBtn.className = 'btn-submit';
   loadMoreBtn.textContent = 'Cargar Más Juegos';
   
-  loadMoreBtn.addEventListener('click', () => {
+  loadMoreBtn.addEventListener('click', async () => {
     currentPage++; // Incrementa el contador de página
     loadMoreBtn.textContent = 'Cargando...'; // Feedback visual
     loadMoreBtn.disabled = true;
-    obtenerJuegos(options); // Llama a la API para la siguiente página
+    try {
+      await obtenerJuegos(options); // Llama a la API para la siguiente página
+    } finally {
+      // La función mostrarBotonCargarMas se llamará de nuevo después de obtenerJuegos
+      // así que no necesitamos restaurar el botón aquí
+    }
   });
   
   paginationContainer.appendChild(loadMoreBtn);
@@ -1435,4 +1700,25 @@ function debounceSearch(callback, delay = 500) {
   debounceTimer = setTimeout(() => {
     callback(); // Llama a la función de búsqueda real
   }, delay);
+}
+
+// 34. Configurar ordenación
+function configurarOrdenacion() {
+  const sortFilter = document.getElementById('sort-filter');
+  
+  if (!sortFilter) return;
+  
+  sortFilter.addEventListener('change', (e) => {
+    ordenSeleccionado = e.target.value;
+    currentPage = 1; // Resetea la página
+    
+    // Si estamos en una vista de juegos, recargar
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '' || hash.startsWith('#/top-') || hash.startsWith('#/best-') || hash.startsWith('#/popular-') || hash.startsWith('#/all-time-')) {
+      const container = document.getElementById('juegos-container');
+      if (container) {
+        obtenerJuegos();
+      }
+    }
+  });
 }

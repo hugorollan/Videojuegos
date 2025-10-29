@@ -821,3 +821,87 @@ footer a:hover {
 .fav-btn.active {
   color: #e74c3c; /* Color rojo cuando está activo */
 }
+
+/* --- 6. SCREENSHOTS CAROUSEL --- */
+.screenshots-carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 0;
+  scroll-snap-type: x mandatory;
+}
+
+.screenshots-carousel::-webkit-scrollbar {
+  height: 8px;
+}
+
+.screenshots-carousel::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+  border-radius: 4px;
+}
+
+.screenshots-carousel::-webkit-scrollbar-thumb {
+  background: var(--accent-color);
+  border-radius: 4px;
+}
+
+.screenshot-img {
+  flex-shrink: 0;
+  width: 300px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #333;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.screenshot-img:hover {
+  transform: scale(1.05);
+  border-color: var(--accent-color);
+}
+
+/* --- 7. SIMILAR GAMES --- */
+.similar-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.similar-game-card {
+  background: var(--bg-dark);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+  cursor: pointer;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.similar-game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-color);
+}
+
+.similar-game-card img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.similar-game-card h4 {
+  padding: 10px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.similar-game-card .rating {
+  padding: 0 10px 10px;
+  color: var(--accent-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
