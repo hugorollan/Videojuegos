@@ -14,7 +14,9 @@
       "username": "user",
       "password": "user",
       "role": "admin",
-      "favoritos": []
+      "favoritos": [
+        3498
+      ]
     },
     {
       "id": "d742",
